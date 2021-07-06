@@ -1,0 +1,516 @@
+---
+title: "![](/Users/marcelomontesmunoz/Documents/Trabajo/R Boletines + Análisis Recolección/1. CDC IPC 2021/1. Prueba (26.01.2021)/Boletín IPC/G0.png){width=20%}"
+author: '**Depto. de Estadísticas de Precios (DEP) - Subdirección Técnica**'
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+header-includes: \usepackage{float} \floatplacement{figure}{H} \usepackage[labelformat
+  = empty]{caption} \usepackage[labelfont=it,textfont={bf,it}]{caption}
+fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) #Chunk nº 1: Genera la posibilidad de ocultar los códigos R asociados a cada comando.
+```
+
+```{r, include=FALSE}
+#Chunk nª 2: Carga de librerías (tidyverse, KableExtra, Haven) y Base de Datos.
+library(tidyverse) 
+library(kableExtra)
+library(haven)
+library(knitr)
+
+base_final <- read_dta("base_final.dta")
+```
+
+## **1.Análisis Estado Recolección**
+
+A continuación y con base en los insumos compartidos desde la Subdirección de Tecnologías de Información (SDTI), es decir, el 'informe IVE' de hoy con fecha **`r format(Sys.time(), '%d/%m/%y')`**, se comparte y formaliza el siguiente análisis respecto del **grado de avance de la recolección y del estado de la imputación** del cálculo coyuntural IPC del presente mes (`r format(Sys.time(), '%b, %Y')`). Este, se mantendrá como un insumo de información constante en los próximos días y semanas, cada vez que un informe IVE sea compartido desde el área TI.
+
+A lo largo del presente documento, podrán notar que el análisis está enfocado en la descomposición de todas y cada una de las observaciones entre:
+
+  1. Observaciones perdidas del mes; a nivel de variedad-establecimiento.
+  2. Observaciones nuevas; a nivel de variedad-establecimiento.
+  3. Observaciones en análisis; a nivel de variedad-establecimiento.
+
+De esta manera, las **"observaciones en análisis"** serán el objetivo principal de estudio. Lo anterior, por encontarse estas observaciones en cálculo tanto en el mes *(t)* como en *(t-1)*, además de corresponder a gran parte de la muestra utilizada. 
+
+Para revisar cada una de las observaciones descritas anteriormente, por favor hacer uso de los archivos en formato *Excel* y *Stata (.dta)* compartidos en el siguiente [**link**](https://inechile-my.sharepoint.com/:f:/g/personal/mamontesm_ine_gob_cl/EieIENEnIzxOtBM3Uykin_wBjRJ-oSPU7-jyGq3xbUZhxA?e=pbNOa5 )^[En esta carpeta se comparten los informes de cada IVE, ordenados por año y mes.].
+
+La distribución de la base completa corresponde a:
+
+```{r preparación tabla 1, echo=FALSE}
+#Chunk nª 3.1.: Tabla Distribución de la base de datos entre observaciones perdidas, nuevas y bajo análisis del mes.
+options(dplyr.summarise.inform = FALSE)
+#El grouping genera una alerta. Por lo tanto, es necesario agregar el comando anterior
+base <- base_final
+names(base)[names(base) == "_merge"] <- "Tipo_Observacion" 
+names(base)[names(base) == "d"] <- "División"
+
+tabla_1 <- base %>% 
+  mutate(Tipo_Observacion = case_when(Tipo_Observacion == 1 ~ "Perdido",
+                                     Tipo_Observacion == 2 ~ "Nuevo",
+                                     Tipo_Observacion == 3 ~ "Bajo Análisis" )) %>%  
+  group_by(Tipo_Observacion) %>% 
+  summarise(N = n()) %>%
+  mutate(Frecuencia = N / sum(N),
+         Acumulado = cumsum(Frecuencia))
+```
+
+```{r tabla 1, echo=FALSE} 
+#Chunk nª 3.2.: Tabla Distribución de la base de datos entre observaciones perdidas, nuevas y bajo análisis del mes.
+tabla_1 %>%
+  kbl(caption = "Distribución de la base de datos entre observaciones perdidas, nuevas y bajo análisis del mes.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```  
+
+
+\newpage
+Partimos con presentar lo que esperamos recolectar menos lo que se ha levantado en el transcurso de la presente coyuntura, es decir, a continuación se presentan las expectativas netas de la recolección mensual (*E[R]-Recolección Actual*):
+
+
+```{r preparación tabla 2, echo=FALSE}
+#Chunk nª 4.1.: Tabla E[R]-Recolección Actual.
+options(dplyr.summarise.inform = FALSE)
+options(digits=2) # por si se quiere limitar el número de decimales del chunk
+
+tabla_2 <- base %>%
+  mutate(Esperado_menos_recoleccion = exp-rec_actual) %>% 
+  group_by(Esperado_menos_recoleccion) %>% 
+  summarise(N = n()) %>%
+  mutate(Frecuencia = N / sum(N),
+         Acumulado = cumsum(Frecuencia))
+
+#Revisar los NA
+```
+
+```{r tabla 2, echo=FALSE}
+#Chunk nª 4.2.: Tabla E[R]-Recolección Actual.
+tabla_2 %>%
+  kbl(caption = "Distribución del Estado de Recolección Actual.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r dato tabla 2, echo=FALSE}
+#Chunk n. 4.3: Datos de tabla
+sub_base <- subset(tabla_2, Esperado_menos_recoleccion == 0, select = "Acumulado")
+
+acum <- sum(sub_base[1,1])
+```
+
+\  
+
+Es decir, de los precios en cálculo del mes pasado, el `r round((acum*100), digits = 0)`% (aprox.) posee recolección igual a la esperada.
+
+Y como vemos existen *`r tabla_2[7, "N"]`* precios perdidos que se conectan con la primera tabla.
+
+Es necesario revisar de donde proviene la distribución de estas observaciones, y por qué se genera esto. Se solicita a SDO una revisión constante y en detalle de estos temas. 
+Lo anterior, con el propósito de conocer en profundidad la realidad de cada división. Si a su vez, para lo anterior, es necesario que compartamos mayor data u otras variables, por favor dar cuenta para incorporarlo en la programación asociada.
+
+En línea con lo anterior, con la  siguiente tabla se busca descomponer esta distribución entre divisiones.
+
+```{r preparación tabla 3, echo=FALSE}
+#Chunk nª 5.1.: Tabla Distribución de observaciones (perdido, nuevo y bajo análisis) por divisiones.
+tabla_3 <- base %>%
+  group_by(División) %>% #Renombrar
+  summarise("Perdido" = sum(perdidos),
+            "Nuevo" = sum(nuevo),
+            "Bajo Análisis" = sum(revision),
+            "Total" = sum(perdidos, nuevo, revision))
+```
+
+```{r tabla 3, echo=FALSE}
+#Chunk nª 5.2.: Tabla Distribución de observaciones (perdido, nuevo y bajo análisis) por divisiones.
+tabla_3 %>%
+  kbl(caption = "Distribución de observaciones por división.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+
+Así, para el IVE con fecha **`r format(Sys.time(), '%d/%m/%y')`** podemos obervar que:  
+
+  * Tenemos *`r format(sum(tabla_3[, "Perdido"]), scientific = FALSE, big.mark=",")`* precios perdidos.
+  * *`r format(sum(tabla_3[, "Nuevo"]), scientific = FALSE, big.mark=",")`* precios o variedades nuevas.
+  * Y *`r format(sum(tabla_3[, "Bajo Análisis"]), scientific = FALSE, big.mark=",")`* variedades que tenían presencia en el último cálculo del mes pasado y este mes.
+  * El total de observaciones es de `r format(sum(tabla_3[, "Total"]), scientific = FALSE, big.mark=",")`.
+  
+También podemos identificar cada una de estas variables con un filtro en los archivos compartidos. En este sentido, en la carpeta compartida podrán ver las bases con formato *Stata* y *Excel*, para que puedan distribuir esto a vuestros analistas, en caso de corresponder.
+
+Si se requiere de un formato diferente, por favor indicarlo para también generarlo.
+
+Por supuesto se comparte también este análisis con los analistas del DEP, a quienes copiamos en su totalidad, para su uso complementario al trabajo que hoy realizan.
+
+Con ello podemos conocer lo perdido, las observaciones nuevas y aquellas que se mantienen en revisión desde el último cálculo. 
+\  
+
+### **1.1. Observaciones Perdidas**
+
+A continuación, vemos la distribución de los precios perdidos por división: 
+
+```{r preparación tabla 4, echo=FALSE}
+#Chunk nº 6.1.:Tabla Distribución de precios perdidos por división.
+base <- base %>% 
+  mutate(v_perdida = ifelse(tipo_perdida == 1, 1, 0),
+         v_fuente = ifelse(tipo_perdida == 2, 1, 0))
+
+tabla_4 <- base %>% 
+  group_by(División) %>%
+  summarise("Variedad perdida" = sum(v_perdida, na.rm = TRUE),
+            "Variedad asociada a Fuente" = sum(v_fuente, na.rm = TRUE),
+            "Total" = sum(v_perdida, v_fuente, na.rm = TRUE))
+```
+
+```{r tabla 4, echo=FALSE}
+#Chunk nº 6.2.:Tabla Distribución de precios perdidos por división.
+tabla_4 %>%
+  kbl(caption = "Distribución de precios perdidos por división.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\  
+
+Como podemos ver, en este caso se observa una proporción de casos (*`r sum(tabla_4[, "Variedad perdida"])`*) asociados a la pérdida de variedades dentro de la fuente, y a su vez otra proporción (*`r sum(tabla_4[, "Variedad asociada a Fuente"])`*) que se relaciona con la pérdida de fuentes.
+
+A lo anterior, sumamos información sobre aquellos datos perdidos y la cantidad de veces que ya han sido imputados.
+
+```{r preparación tabla 5, echo=FALSE}
+#Chunk nª 7.1.: Tabla Datos perdidos y su histortial de imputaciones. Se diferencia entre aquellas observaciones que no presentan imputaciones previas y aquellos que al menos poseen una.
+base_perdidos <- base %>% 
+  filter(!is.na(tipo_perdida))
+
+tabla_5 <- base_perdidos %>% 
+  group_by(División) %>%
+  summarise("Sin imputaciones" = sum(ifelse(n_imp==0, 1, NA), na.rm = TRUE),
+            "Una imputación" = sum(ifelse(n_imp==1, 1, NA), na.rm = TRUE),
+            "Dos imputaciones" = sum(ifelse(n_imp==2, 1, NA), v_fuente, na.rm = TRUE))
+```
+
+
+```{r tabla 5, echo=FALSE}
+#Chunk nª 7.2.: Tabla Datos perdidos y su histortial de imputaciones. Se diferencia entre aquellas observaciones que no presentan imputaciones previas y aquellos que al menos poseen una. 
+tabla_5 %>%
+  kbl(caption = "Historial de imputaciones de precios perdidos.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\ 
+
+Como podemos ver, de los *`r nrow(base_perdidos)`* datos perdidos, `r (sum(tabla_5[, "Sin imputaciones"])/nrow(base_perdidos))*100`% no presenta imputaciones previas. A su vez, el `r (((sum(tabla_5[, "Sin imputaciones"])/nrow(base_perdidos))*100)-100)*(-1)`% restante ya posee al menos una imputación previa.
+
+Es necesario que el área operativa identifique las causas, en relación a la contingencia actual.
+
+Es posible identificar cada uno con los filtros respectivos, tanto con *Excel* como son *Stata* o el *software* en que se decidan abrir estos datos. Si se requiere de un formato diferente, por favor indicarlo.
+\ 
+
+\newpage
+### **1.2. Observaciones Nuevas**
+
+A su vez, con la siguiente tabla, vemos la distribución de los casos nuevos por división. 
+
+```{r preparación tabla 6, echo=FALSE}
+#Chunk nª 8.1.: Tabla Distribución de los casos nuevos por división.
+tabla_6 <- base %>% 
+  filter(nuevo == 1) %>%
+  group_by(División) %>% 
+  summarise(N = n()) %>%
+  mutate(Frecuencia = N / sum(N),
+         Acumulado = cumsum(Frecuencia))
+```
+
+```{r tabla 6, echo=FALSE}
+#Chunk nª 8.2.: Tabla Distribución de los casos nuevos por división.
+tabla_6 %>%
+  kbl(caption = "Distribución de casos nuevos por división.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\   
+
+De esto, sabemos que tenemos *`r format(sum(tabla_6[, "N"]), scientific = FALSE, big.mark=",")`* observaciones que son nuevas o reingresadas.
+
+```{r preparación tabla 7, echo=FALSE}
+#Chunk nª 9.1.: Tabla Proporciòn de observaciones nuevas que se encuentran digitadas o pendientes.
+tabla_7 <- base %>% 
+  mutate(Digitación = case_when(nuevo_dig == 1 ~ "Digitación Realizada",
+                              nuevo_dig == 2 ~ "Digitación Pendiente")) %>% 
+  filter(nuevo == 1) %>%          #hay valores perdidos!!!
+  group_by(Digitación) %>%         #faltan etiquetas
+  filter(!is.na(Digitación)) %>%   #solución momentánea
+  summarise(N = n()) %>%
+  mutate(Frecuencia = N / sum(N),
+         Acumulado = cumsum(Frecuencia))
+```
+
+```{r tabla 7, echo=FALSE}
+#Chunk nª 9.2.: Tabla Proporciòn de observaciones nuevas que se encuentran digitadas o pendientes.
+tabla_7 %>%
+  kbl(caption = "Observaciones nuevas según estado de digitación.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\   
+
+Con esta última tabla, podemos ver que de lo nuevo el `r sum(tabla_7[2, "N"])/sum(tabla_7[, "N"])*100`% (*`r sum(tabla_7[2, "N"])`* casos) se encuentra digitado. El restante `r (sum(tabla_7[1, "N"])/sum(tabla_7[, "N"]))*100`% se encuentra pendiente.
+Es por ende en estos puntos donde SDO debe enfocarse respecto de lo nuevo. Aún quedan *`r sum(tabla_7[1, "N"])`* variedades por digitar.
+
+A continuación se puede ver esta distribución de lo nuevo, y de lo que se encuentra ok:
+
+```{r preparación tabla 8, echo=FALSE}
+#Chunk nº 10.1.: Tabla Distribución de las observaciones nuevas por cada división y el estado de digitación asociado.
+tabla_8 <- base %>% 
+  filter(nuevo == 1 & !is.na(nuevo_dig)) %>%                #mismos filtros que la tabla 7
+  group_by(División) %>%
+  mutate(dig = ifelse(nuevo_dig == 1, 1, 0),
+         pen = ifelse(nuevo_dig == 2, 1, 0)) %>% 
+  summarise(digitadas = sum(dig),
+            pendientes = sum(pen))
+```
+
+```{r tabla 8, echo=FALSE}
+#Chunk nº 10.2.: Tabla Distribución de las observaciones nuevas por cada división y el estado de digitación asociado.
+tabla_8 %>%
+  kbl(caption = "Observaciones nuevas por división según estado de digitación.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\ 
+
+```{r preparación tabla 9, echo=FALSE}
+#Chunk nº 11.1.: Tabla Distribución de observaciones nuevas por división - Estado: no imputado..
+tabla_9 <- base %>% 
+  filter(nuevo == 1 & !is.na(nuevo_dig)) %>%    
+  filter(imp_actual == 0) %>% 
+  group_by(División) %>%
+  mutate(dig = ifelse(nuevo_dig == 1, 1, 0),
+         pen = ifelse(nuevo_dig == 2, 1, 0)) %>% 
+  summarise(digitadas = sum(dig),
+            pendientes = sum(pen))
+
+#Hay valores perdidos
+```
+\  
+
+Sin embargo, de estas *`r format(sum(tabla_6[, "N"]), scientific = FALSE, big.mark=",")`* observaciones “nuevas”, *`r format(sum(tabla_9[, "digitadas"], tabla_9[, "pendientes"]), scientific = FALSE, big.mark=",")`*  datos no poseen codificación relacionada al estado de imputación. Los restantes *`r format(sum(tabla_6[, "N"]) - sum(tabla_9[, "digitadas"], tabla_9[, "pendientes"]), scientific = FALSE, big.mark=",")`* datos se encuentran ya con códigos de imputación. Es necesario revisar aquello desde el punto de vista operativo. Lo anterior, se descompone a continuación:
+
+```{r tabla 9, echo=FALSE}
+#Chunk nº 11.2: Tabla Distribución de observaciones nuevas por división - Estado: no imputado.
+tabla_9 %>%
+  kbl(caption = "Observaciones nuevas y efectivas por división.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+
+```{r preparación tabla 10, echo=FALSE}
+#Chunk nº 12.1: Tabla Distribución de observaciones nuevas por división - Estado: imputado.
+tabla_10 <- base %>% 
+  filter(nuevo == 1 & !is.na(nuevo_dig)) %>%    
+  filter(imp_actual != 0 & !is.na(imp_actual)) %>% 
+  group_by(División) %>%
+  mutate(dig = ifelse(nuevo_dig == 1, 1, 0),
+         pen = ifelse(nuevo_dig == 2, 1, 0)) %>% 
+  summarise(digitadas = sum(dig),
+            pendientes = sum(pen))
+
+```
+
+```{r tabla 10, echo=FALSE}
+#Chunk nº 12.2: Tabla Distribución de observaciones nuevas por división - Estado: imputado.
+tabla_10 %>%
+  kbl(caption = "Observaciones nuevas y ya imputadas por división.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\ 
+
+### **1.3. Observaciones en Revisión (presentes en *(t)* y *(t-1)*)**
+
+Por último, tenemos el caso de lo que se encuentra en revisión dado que se posee tanto en el último cálculo como en el actual archivo de IVE's (fecha: **`r format(Sys.time(), '%d/%m/%y')`**).
+\ 
+
+Podemos ver la distribución de estos datos por división, destacando las divisiones con mayores datos esperados:
+
+```{r preparación tabla 11, echo=FALSE}
+#Chunk nº 13.1: Tabla Distribución por división de datos en revisión.
+tabla_11 <- base %>% 
+  filter(Tipo_Observacion == 3) %>% 
+  group_by(División) %>% 
+  summarise(N = n()) %>%
+  mutate(Frecuencia = N / sum(N),
+         Acumulado = cumsum(Frecuencia))
+```
+
+```{r tabla 11, echo=FALSE}
+#Chunk nº 13.2: Tabla Distribución por división de datos en revisión.
+tabla_11 %>%
+  kbl(caption = "Distribución de casos en revisión por división.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\  
+
+El total de datos en revisión corresponde por ende a *`r format(sum(tabla_11[, "N"]), scientific = FALSE, big.mark=",")`* observaciones.
+
+```{r preparación tabla 12, echo=FALSE}
+#Chunk nº 14.1: Tabla Distribución por división del total de observaciones en revisión.
+tabla_12 <- base %>% 
+  filter(Tipo_Observacion == 3) %>% 
+  group_by(División) %>% 
+  summarise("Ok. Recolección Lista" =  sum(ifelse(estado_rev==1, 1, NA), na.rm = TRUE),
+            "Recolección Pendiente" = sum(ifelse(estado_rev==2, 1, NA), na.rm = TRUE),
+            "Casos Especiales: Revisar"= sum(ifelse(estado_rev==3, 1, NA), na.rm = TRUE),
+            "Recolección > Expectativa" = sum(ifelse(estado_rev==4, 1, NA), na.rm = TRUE))
+```
+
+```{r tabla 12, echo=FALSE}
+#Chunk nº 14.2: Tabla Distribución por división del total de observaciones en revisión.
+tabla_12 %>%
+  kbl(caption = "Distribución de casos por división según estado de revisión.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+
+```{r preparación tabla 13, echo=FALSE}
+#Chunk nº 15.1: Tabla Distribución por división del total de observaciones en revisión - Estado: Imputados.
+tabla_13 <- base %>% 
+  filter(Tipo_Observacion == 3) %>% 
+  filter(imp_actual != 0 & !is.na(imp_actual)) %>% 
+  group_by(División) %>% 
+  summarise("Ok. Recolección Lista" =  sum(ifelse(estado_rev==1, 1, NA), na.rm = TRUE),
+            "Recolección Pendiente" = sum(ifelse(estado_rev==2, 1, NA), na.rm = TRUE),
+            "Casos Especiales: Revisar"= sum(ifelse(estado_rev==3, 1, NA), na.rm = TRUE),
+            "Recolección > Expectativa" = sum(ifelse(estado_rev==4, 1, NA), na.rm = TRUE))
+
+```
+\  
+
+Sin embargo, a la fecha, de los *`r format(sum(tabla_11[, "N"]), scientific = FALSE, big.mark=",")`* datos en estado de revisión, se encuentran con código de imputación  *`r format(sum(tabla_13[, "Ok. Recolección Lista"], tabla_13[, "Recolección Pendiente"], tabla_13[, "Casos Especiales: Revisar"], tabla_13[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`* observaciones. Es decir, la **tasa de imputación bruta o incluyendo réplicas** se encuentra entre **`r round(sum(tabla_13[, "Ok. Recolección Lista"], tabla_13[, "Recolección Pendiente"], tabla_13[, "Casos Especiales: Revisar"], tabla_13[, "Recolección > Expectativa"])/sum(tabla_11[, "N"]/100), digits = 0)-1`%** y **`r round(sum(tabla_13[, "Ok. Recolección Lista"], tabla_13[, "Recolección Pendiente"], tabla_13[, "Casos Especiales: Revisar"], tabla_13[, "Recolección > Expectativa"])/sum(tabla_11[, "N"]/100), digits = 0)+1`%**. A continuación podemos revisar lo antes descrito:
+
+```{r tabla 13, echo=FALSE}
+#Chunk nº 15.2: Tabla Distribución por división del total de observaciones en revisión - Estado: Imputados.
+tabla_13 %>%
+  kbl(caption = "Distribución de casos imputados por división.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\  
+
+```{r preparación tabla 14, echo=FALSE}
+#Chunk nº 16.1: Tabla Distribución por división del total de observaciones en revisión - Estado: No Imputados.
+tabla_14 <- base %>% 
+  filter(Tipo_Observacion == 3) %>% 
+  filter(imp_actual == 0) %>% 
+  group_by(División) %>% 
+  summarise("Ok. Recolección Lista" =  sum(ifelse(estado_rev==1, 1, NA), na.rm = TRUE),
+            "Recolección Pendiente" = sum(ifelse(estado_rev==2, 1, NA), na.rm = TRUE),
+            "Casos Especiales: Revisar"= sum(ifelse(estado_rev==3, 1, NA), na.rm = TRUE),
+            "Recolección > Expectativa" = sum(ifelse(estado_rev==4, 1, NA), na.rm = TRUE))
+
+```
+
+
+Dado lo anterior, *`r format(sum(tabla_14[, "Ok. Recolección Lista"], tabla_14[, "Recolección Pendiente"], tabla_14[, "Casos Especiales: Revisar"], tabla_14[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`*  datos se encontrarían en estado de recolección activo, y de aquello, *`r format(sum(tabla_14[, "Ok. Recolección Lista"]), scientific = FALSE, big.mark=",")`* + *`r format(sum(tabla_14[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`* = *`r format(sum(tabla_14[, "Ok. Recolección Lista"], tabla_14[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`*  datos se encontrarían en estado final. Así, *`r format(sum(tabla_14[, "Recolección Pendiente"]), scientific = FALSE, big.mark=",")`* observaciones se encuentran pendientes de digitar.
+
+
+```{r tabla 14, echo=FALSE}
+#Chunk nº 16.2: Tabla Distribución por división del total de observaciones en revisión - Estado: No Imputados.
+tabla_14 %>%
+  kbl(caption = "Distribución de casos efectivos en revisión.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\ 
+
+
+```{r preparación tabla 15, echo=FALSE}
+#Chunk nº 17.1: Tabla Distribución por división del total de observaciones en revisión - No incluye réplicas.
+tabla_15 <- base %>% 
+  filter(replica == 0) %>% 
+  group_by(División) %>% 
+  summarise("Ok. Recolección Lista" =  sum(ifelse(estado_rev==1, 1, NA), na.rm = TRUE),
+            "Recolección Pendiente" = sum(ifelse(estado_rev==2, 1, NA), na.rm = TRUE),
+            "Casos Especiales: Revisar"= sum(ifelse(estado_rev==3, 1, NA), na.rm = TRUE),
+            "Recolección > Expectativa" = sum(ifelse(estado_rev==4, 1, NA), na.rm = TRUE))
+
+dato1  <-  base %>% # Comprobar que esté malo
+  filter(replica != 0)
+
+dato2  <- dato1 %>% 
+  filter(estado_rev == 2)
+```
+
+
+Como podemos ver, de *`r format(sum(tabla_11[, "N"]), scientific = FALSE, big.mark=",")`* observaciones, **`r format(sum(tabla_14[, "Ok. Recolección Lista"], tabla_14[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`** se encontrarían **sin tasa de imputación**. Ello representa aprox. el **`r round(sum(tabla_14[, "Ok. Recolección Lista"], tabla_14[, "Recolección > Expectativa"])/(sum(tabla_11[, "N"])), digits = 2)*100`%** del total de las observaciones en revisión.
+
+A su vez, sabemos que existen *`r format(nrow(dato1), scientific = FALSE, big.mark=",")`* réplicas, de las cuales quedan *`r format(nrow(dato2), scientific = FALSE, big.mark=",")`* observaciones pendientes.
+
+Por ende, lo que realmente queda pendiente, sin incluir réplicas, corresponde a *`r format(sum(tabla_15[, "Ok. Recolección Lista"], tabla_15[, "Recolección Pendiente"], tabla_15[, "Casos Especiales: Revisar"], tabla_15[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`* observaciones, como puede verse en la siguiente tabla: 
+
+
+```{r tabla 15, echo=FALSE}
+#Chunk nº 17.2: Tabla Distribución por división del total de observaciones en revisión - No incluye réplicas.
+tabla_15 %>%
+  kbl(caption = "Distribución de casos en revisión por división, sin incluir réplicas.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\  
+
+```{r preparación tabla 16, echo=FALSE}
+#Chunk nº 18.1: Tabla Distribución por división del total de observaciones en revisión - Estado: No Imputados y no incluye réplicas.
+tabla_16 <- base %>% 
+  filter(replica == 0) %>% 
+  filter(imp_actual == 0) %>% 
+  group_by(División) %>% 
+  summarise("Ok. Recolección Lista" =  sum(ifelse(estado_rev==1, 1, NA), na.rm = TRUE),
+            "Recolección Pendiente" = sum(ifelse(estado_rev==2, 1, NA), na.rm = TRUE),
+            "Casos Especiales: Revisar"= sum(ifelse(estado_rev==3, 1, NA), na.rm = TRUE),
+            "Recolección > Expectativa" = sum(ifelse(estado_rev==4, 1, NA), na.rm = TRUE))
+
+```
+
+
+De este total, *`r format(sum(tabla_16[, "Ok. Recolección Lista"], tabla_16[, "Recolección Pendiente"], tabla_16[, "Casos Especiales: Revisar"], tabla_16[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`*   se encuentran sin código de imputación, y de ello aprox. *`r format(sum(tabla_16[, "Ok. Recolección Lista"]), scientific = FALSE, big.mark=",")`* + *`r format(sum(tabla_16[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`* = *`r format(sum(tabla_16[, "Ok. Recolección Lista"], tabla_16[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`*  precios se encuentran en estado final. De ello, falta por digitar o recolectar *`r format(sum(tabla_16[, "Recolección Pendiente"]), scientific = FALSE, big.mark=",")`* observaciones.
+
+
+```{r tabla 16, echo=FALSE}
+#Chunk nº 18.2: Tabla Distribución por división del total de observaciones en revisión - Estado: No Imputados y no incluye réplicas.
+tabla_16 %>%
+  kbl(caption = "Distribución de casos en revisión por división, sin incluir réplicas ni casos efectivos.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+
+```{r preparación tabla 17, echo=FALSE}
+#Chunk nº 19.1: Tabla Distribución por división del total de observaciones en revisión - Estado: Imputados y no incluye réplicas.
+tabla_17 <- base %>% 
+  filter(replica == 0) %>% 
+  filter(imp_actual != 0 & !is.na(imp_actual)) %>% 
+  group_by(División) %>% 
+  summarise("Ok. Recolección Lista" =  sum(ifelse(estado_rev==1, 1, NA), na.rm = TRUE),
+            "Recolección Pendiente" = sum(ifelse(estado_rev==2, 1, NA), na.rm = TRUE),
+            "Casos Especiales: Revisar"= sum(ifelse(estado_rev==3, 1, NA), na.rm = TRUE),
+            "Recolección > Expectativa" = sum(ifelse(estado_rev==4, 1, NA), na.rm = TRUE))
+
+```
+
+
+```{r tabla 17, echo=FALSE}
+#Chunk nº 19.2: Tabla Distribución por división del total de observaciones en revisión - Estado: Imputados y no incluye réplicas.
+tabla_17 %>%
+  kbl(caption = "Distribución de casos imputados en revisión por división, sin incluir réplicas.", format.args = list(big.mark = ",")) %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+\  
+
+Es decir, con estos resultados los datos por imputarse, **netos de réplicas**, corresponden a aproximadamente *`r format(sum(tabla_17[, "Ok. Recolección Lista"], tabla_17[, "Recolección Pendiente"], tabla_17[, "Casos Especiales: Revisar"], tabla_17[, "Recolección > Expectativa"]), scientific = FALSE, big.mark=",")`* observaciones. Dado lo anterior, la tasa de imputación neta de réplicas se encuentra entre **`r round((sum(tabla_17)/(sum(tabla_11[, "N"]))*100), digits = 0)-1`% y `r round((sum(tabla_17)/(sum(tabla_11[, "N"]))*100), digits = 0)+1`%**.
+
+Con el paso de los días y semanas de cada coyuntura, se incporporarán observaciones asociadas a registros administrativos y cálculos de construcción y tratamiento especial. A su vez, se actualizarán estas cifras y el análsis detrás de las mismas cada vez que se haga entrega del informe IVE de parte del área SDTI (recordar que el informe IVE se obtiene como un resultado del sistema IPC).
